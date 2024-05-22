@@ -3,8 +3,10 @@
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
+import os
 import re
 import socket
+import sys
 
 from spack.package import *
 
@@ -57,6 +59,10 @@ class Openssh(AutotoolsPackage):
     variant(
         "gssapi", default=True, description="Enable authentication via Kerberos through GSSAPI"
     )
+    variant(
+        "system_known_hosts", default=False, description="Symlink system known_hosts"
+    )
+
 
     depends_on("krb5+shared", when="+gssapi")
     depends_on("openssl@:1.0", when="@:7.7p1")
@@ -176,3 +182,14 @@ class Openssh(AutotoolsPackage):
 
     def installcheck(self):
         make("-e", "tests", parallel=False)
+
+    @run_after("install")
+    def symlink(self):
+        if sys.platform == "win32":
+            return
+        spec = self.spec
+        prefix = self.prefix
+
+        if spec.satisfies("+system_known_hosts"):
+            os.symlink("/etc/ssh/ssh_known_hosts",
+                       os.path.join(prefix.etc, "ssh_known_hosts"))
